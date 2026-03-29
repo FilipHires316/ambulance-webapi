@@ -5,8 +5,13 @@ import (
 	"os"
 	"strings"
 
+	"context"
+	"time"
+
 	"github.com/FilipHires316/ambulance-webapi/api"
 	"github.com/FilipHires316/ambulance-webapi/internal/ambulance_wl"
+	"github.com/FilipHires316/ambulance-webapi/internal/db_service"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,10 +27,27 @@ func main() {
 	}
 	engine := gin.New()
 	engine.Use(gin.Recovery())
+	corsMiddleware := cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "PUT", "POST", "DELETE", "PATCH"},
+		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type"},
+		ExposeHeaders:    []string{""},
+		AllowCredentials: false,
+		MaxAge:           12 * time.Hour,
+	})
+	engine.Use(corsMiddleware)
+	// setup context update  middleware
+	dbService := db_service.NewMongoService[ambulance_wl.Ambulance](db_service.MongoServiceConfig{})
+	defer dbService.Disconnect(context.Background())
+	engine.Use(func(ctx *gin.Context) {
+		ctx.Set("db_service", dbService)
+		ctx.Next()
+	})
 	// request routings
 	handleFunctions := &ambulance_wl.ApiHandleFunctions{
 		AmbulanceConditionsAPI:  ambulance_wl.NewAmbulanceConditionsApi(),
 		AmbulanceWaitingListAPI: ambulance_wl.NewAmbulanceWaitingListApi(),
+		AmbulancesAPI:           ambulance_wl.NewAmbulancesApi(),
 	}
 	ambulance_wl.NewRouterWithGinEngine(engine, *handleFunctions)
 	engine.GET("/openapi", api.HandleOpenApi)

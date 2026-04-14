@@ -173,6 +173,10 @@ func (o implAmbulanceWaitingListAPI) UpdateWaitingListEntry(c *gin.Context) {
 			ambulance.WaitingList[entryIndx].Id = entry.Id
 		}
 
+		if entry.Name != "" {
+			ambulance.WaitingList[entryIndx].Name = entry.Name
+		}
+
 		if entry.WaitingSince.After(time.Time{}) {
 			ambulance.WaitingList[entryIndx].WaitingSince = entry.WaitingSince
 		}
@@ -181,7 +185,13 @@ func (o implAmbulanceWaitingListAPI) UpdateWaitingListEntry(c *gin.Context) {
 			ambulance.WaitingList[entryIndx].EstimatedDurationMinutes = entry.EstimatedDurationMinutes
 		}
 
+		ambulance.WaitingList[entryIndx].Condition = entry.Condition
+
 		ambulance.reconcileWaitingList()
-		return ambulance, ambulance.WaitingList[entryIndx], http.StatusOK
+		// find the entry again after sort since index may have changed
+		updatedIndx := slices.IndexFunc(ambulance.WaitingList, func(waiting WaitingListEntry) bool {
+			return entryId == waiting.Id
+		})
+		return ambulance, ambulance.WaitingList[updatedIndx], http.StatusOK
 	})
 }
